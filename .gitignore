@@ -1,0 +1,12 @@
+*.cabal
+*~
+*.swp
+tarballs/
+.stack-work/
+
+# links manki exe to tts service
+pass-audios.sh
+
+# ignore all test files except example.*
+test/test_files/*
+!test/test_files/example.*
