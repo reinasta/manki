@@ -1,0 +1,28 @@
+
+here are @a few words@; they @can be pronounced@ but @later@ please
+--
+insert here: |>
+--
+the next here: |>; and
+the last here: |>. Thanks!
+
+first cell: @~this~,@
+--
+@and that,@
+--
+@are merged@ here |>
+
+the first cell, with @~hidden words~@1
+---
+the second cell, with audio insert: 1|>
+---
+the third cell, *amazing*, _fantastic_
+
+foo bar, _foo bar_
+-@fantastic!@6
+---
+it's @extraordinary!@5\n
+what it can do
+---
+_pronunciation_: 5|>  means 6|>
+cheers

@@ -1,0 +1,4 @@
+"here are a few words; they can be pronounced but later please","insert here: [[sound:a_few_words.mp3]]","the next here: [[sound:can_be_pronounced.mp3]]; and<br>the last here: [[sound:later.mp3]]. Thanks!"
+"first cell: {{c3::this}}","and that","are merged here [[sound:this_and_that_are_merged.mp3]]"
+"the first cell, with {{c0::hidden words}}","the second cell, with audio insert: [[sound:hidden_words.mp3]]","the third cell, <b>amazing</b>, <i>fantastic</i>"
+"foo bar, <i>foo bar</i><br>fantastic","it's extraordinary\n<br>what it can do","<i>pronunciation</i>: [[sound:extraordinary.mp3]]  means [[sound:fantastic.mp3]]<br>cheers"
