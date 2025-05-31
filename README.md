@@ -43,6 +43,7 @@ Manki is more constrained than other light markup languages in the sense that no
 * `*bold*` and `*italic*` convert to html `<b>bold</b>` and `<i>italic</i>` (recognised as such by Anki)
 * `@audio string@3` converts to a bare string with no markup (`audio string`) but can be collected and inserted in the same block; if you don't want `audio string` to occur in the output file (yet need the string in order to produce audio) use one or two dashes before the starting marker: `-@audio string`.
 * the `3|>` inserts a coindexed audio string, and converts to something like `[[sound:audio_strings]]` (assuming the audio string just above)
+* Math expressions can be included using `$` for inline math (e.g., `$E=mc^2$`) and `$$` for block math (e.g., `$$x = \frac{-b \pm \sqrt{b^2-4ac}}{2a}$$`). Literal dollar signs must be escaped as `\$` to avoid being interpreted as math delimiters. Other math delimiters like `\(...\)` or `\[...\]` are not currently supported.
 * indices (on cloze-deletion markers, audio markers and insert markers) are optional and should be used for cross-referencing.
 * two or more dashes on a new line (`\n---\n`) separate one field (csv cell) from another; no start or end delimiters are allowed; so `\n--\ncell one\n--\ncell two\n--\n` is wrong; use instead: `cell one\n--\ncell two`
 * blocks in the input file (which will become csv rows, which in turn will become flash cards after import) are separated from one another by two or more newlines. Example: `row one, cell one\n--\nrow two, cell two\n\nrow two, cell one\n--\nrowtwo, cell two`
@@ -171,6 +172,15 @@ echo "Field 1\n---\nField 2\n---\nField 3" | stack exec manki-exe -- --csv
 
 # Multiple cards (separated by blank lines)
 echo "Card 1, Field 1\n---\nCard 1, Field 2\n\nCard 2, Field 1\n---\nCard 2, Field 2" | stack exec manki-exe -- --csv
+
+# Inline math
+echo "The equation is $E=mc^2$." | stack exec manki-exe -- --csv
+
+# Block math
+echo "A more complex formula: $$\\sum_{i=0}^n x_i$$" | stack exec manki-exe -- --csv
+
+# Escaped dollar sign
+echo "This costs \\$5, not $5." | stack exec manki-exe -- --csv
 ```
 
 ### Clean Build
