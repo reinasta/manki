@@ -64,7 +64,7 @@ spec = do
       parse bold' "" "*bold string* blah" `shouldParse` "bold string"
 
     it "parses a bold string with symbols and newline characters" $ do
-      parse bold' "" "*a\"\'\n4$%\n$^#$-!* blah" `shouldParse` "a\"\'\n4$%\n$^#$-!"
+      parse bold' "" "*a\"\'\n4\\$%\n\\$^#\\$-!* blah" `shouldParse` "a\"\'\n4$%\n$^#$-!"
 
     it "parses an italic string" $ do
       parse italic' "" "_italic string_ blah" `shouldParse` "italic string"
@@ -91,6 +91,77 @@ spec = do
 
     it "fails on strings which begin with markers" $ do
       parse regular "" `shouldFailOn` "*blah"
+
+  describe "mathInline" $ do
+
+    it "parses basic inline math with dollar delimiters" $ do
+      parse mathInline "" "$a^2 + b^2 = c^2$" `shouldParse` (MathInline "a^2 + b^2 = c^2")
+
+    it "parses inline math with fractions and special characters" $ do
+      parse mathInline "" "$\\frac{-b \\pm \\sqrt{b^2-4ac}}{2a}$" `shouldParse` (MathInline "\\frac{-b \\pm \\sqrt{b^2-4ac}}{2a}")
+
+    it "fails on unclosed inline math" $ do
+      parse mathInline "" `shouldFailOn` "$a+b"
+
+  describe "mathBlock" $ do
+
+    it "parses basic block math with double dollar delimiters" $ do
+      parse mathBlock "" "$$E = mc^2$$" `shouldParse` (MathBlock "E = mc^2")
+
+    it "parses block math with complex expressions" $ do
+      parse mathBlock "" "$$\\sum_{i=1}^{n} x_i = \\int_0^1 f(x) dx$$" `shouldParse` (MathBlock "\\sum_{i=1}^{n} x_i = \\int_0^1 f(x) dx")
+
+    it "fails on unclosed block math" $ do
+      parse mathBlock "" `shouldFailOn` "$$a+b"
+
+  describe "mixed math and text" $ do
+
+    it "parses text with inline math" $ do
+      let input = "The quadratic formula is $x = \\frac{-b \\pm \\sqrt{b^2-4ac}}{2a}$."
+      let expected = [Regular "The quadratic formula is ", MathInline "x = \\frac{-b \\pm \\sqrt{b^2-4ac}}{2a}", Regular "."]
+      parse (some markup) "" input `shouldParse` expected
+
+    it "parses simple text with one inline math expression" $ do
+      let input = "Value is $x$."
+      let expected = [Regular "Value is ", MathInline "x", Regular "."]
+      parse (some markup) "" input `shouldParse` expected
+
+    it "parses inline math at the beginning of a string" $ do
+      let input = "$x = 1$ is an equation."
+      let expected = [MathInline "x = 1", Regular " is an equation."]
+      parse (some markup) "" input `shouldParse` expected
+
+    it "parses inline math at the end of a string" $ do
+      let input = "An equation is $x = 1$."
+      let expected = [Regular "An equation is ", MathInline "x = 1", Regular "."]
+      parse (some markup) "" input `shouldParse` expected
+
+    it "parses multiple inline math expressions consecutively" $ do
+      let input = "$a$$b$"
+      let expected = [MathInline "a", MathInline "b"]
+      parse (some markup) "" input `shouldParse` expected
+
+    it "parses inline math with escaped dollar signs within math content" $ do
+      let input = "The conversion rate is $£1 = \\$1.35$, so $£10 = \\$13.5$."
+      let expected = [Regular "The conversion rate is ", MathInline "£1 = \\$1.35", Regular ", so ", MathInline "£10 = \\$13.5", Regular "."]
+      parse (some markup) "" input `shouldParse` expected
+
+    it "parses text with escaped dollar signs outside of math" $ do
+      let input = "This costs \\$5."
+      let expected = [Regular "This costs $5."] -- \\$ in regular text becomes $
+      parse (some markup) "" input `shouldParse` expected
+
+    it "parses text with escaped dollar signs both inside and outside of math" $ do
+      let input = "Price: \\$5, or $value \\approx \\$5$ in math."
+      let expected = [Regular "Price: $5, or ", MathInline "value \\approx \\$5", Regular " in math."]
+      parse (some markup) "" input `shouldParse` expected
+
+    it "parses text with non-dollar-escaping backslashes in regular text and math" $ do
+      let input = "Path: C:\\Users\\Name, formula $f(x) = x\\alpha + C:\\beta$"
+      let expected = [Regular "Path: C:\\Users\\Name, formula ", MathInline "f(x) = x\\alpha + C:\\beta"]
+      parse (some markup) "" input `shouldParse` expected
+
+
 
   describe "audioInsertMarker" $ do
 
@@ -225,7 +296,7 @@ spec = do
 
     it "parses several rows" $ do
       let cell1 =
-           "this ~1st~ or$%^ _ups_ ~2nd~1 and-that ~3rd blah~ ups *ups*!\n---\n" :: String
+           "this ~1st~ or\\$%^ _ups_ ~2nd~1 and-that ~3rd blah~ ups *ups*!\n---\n" :: String
 
       let cell2 =
            "this ~1st~1 and/or _ups_ ~2nd~1 foo--bar ~3rd blah~999 'ups'? * *!\n\n" :: String
@@ -350,7 +421,7 @@ spec = do
 
     it "parses a multi-row csv string with trailing newlines at the end" $ do
       let cell1 =
-           "this ~1st~ or$%^ _ups_ ~2nd~1 and-that ~3rd blah~ ups *ups*!\n---\n" :: String
+           "this ~1st~ or\\$%^ _ups_ ~2nd~1 and-that ~3rd blah~ ups *ups*!\n---\n" :: String
 
       let cell2 =
            "this ~1st~1 and/or _ups_ ~2nd~1 foo--bar ~3rd blah~999 'ups'? * *!\n\n" :: String
@@ -396,7 +467,7 @@ spec = do
 
     it "parses a multi-row csv string without trailing newlines at the end" $ do
       let cell1 =
-           "this ~1st~ or$%^ _ups_ ~2nd~1 and-that ~3rd blah~ ups *ups*!\n---\n" :: String
+           "this ~1st~ or\\$%^ _ups_ ~2nd~1 and-that ~3rd blah~ ups *ups*!\n---\n" :: String
 
       let cell2 =
            "this ~1st~1 and/or _ups_ ~2nd~1 foo--bar ~3rd blah~999 'ups'? * *!\n\n" :: String

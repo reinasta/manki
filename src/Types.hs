@@ -36,6 +36,8 @@ data Markup = Cloze Int String
             | Regular String
             | Audio [Attr] Int [Markup]
             | AudioInsert Int [Markup]
+            | MathInline String
+            | MathBlock String
             | EndCell
             | EndRow
             deriving (Show,Eq,Generic)

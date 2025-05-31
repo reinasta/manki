@@ -6,9 +6,6 @@ import Text.Megaparsec
 import Text.Megaparsec.Char hiding (space)
 import Text.Megaparsec.Char.Lexer (decimal)
 
---remove after testing
-import Test.QuickCheck
-
 import Types
 import Audio (copyAudios,copyUnmergedAudios,removeEmptyAudios)
 import Indices (updateIndices,rewriteIndices)
@@ -28,6 +25,33 @@ italicMarker = makeSymmetricMarker "_"
 boldMarker :: Parser String
 boldMarker = makeSymmetricMarker "*"
 
+-- Helper for escaped characters
+escapedCharP :: Char -> Parser Char
+escapedCharP c = char '\\' *> char c
+
+-- Math parsers
+mathInline :: Parser Markup
+mathInline = try (do
+  _ <- char '$'
+  -- Ensure it's a single '$', not '$$'
+  notFollowedBy (char '$') <?> "unexpected '$$' for inline math; use '$...$' for inline or '$$...$$' for block"
+  -- Content parser:
+  -- 1. Try to parse "\\$" as a literal string.
+  -- 2. Otherwise, parse any character that is not '$' or a newline.
+  let contentChar = try (string "\\$") <|> fmap (:[]) (noneOf "$\n\r")
+  contentParts <- manyTill contentChar (char '$' <?> "unclosed inline math: missing closing '$' (or did you mean to escape a dollar sign with '\\$'?)")
+  return (MathInline (concat contentParts))) <?> "mathInline"
+
+mathBlock :: Parser Markup
+mathBlock = try (do
+  _ <- string "$$"
+  -- Content parser for block math (allows newlines):
+  -- 1. Try to parse "\\$" as a literal string.
+  -- 2. Otherwise, parse any character that is not '$'.
+  let contentChar = try (string "\\$") <|> fmap (:[]) (noneOf "$") -- Allows newlines
+  contentParts <- manyTill contentChar (string "$$" <?> "unclosed block math: missing closing '$$'")
+  return (MathBlock (concat contentParts))) <?> "mathBlock"
+
 
 rowEnd :: Parser Markup
 rowEnd = doubleNewline $> EndRow
@@ -40,7 +64,8 @@ eofStr = eof $> ""
 
 wordChar :: Parser Char
 wordChar = no2newlines >>
-  choice [ try nonmarker
+  choice [ try (escapedCharP '$') -- Allow escaped dollar sign
+         , try nonmarker
          , try noDelimiterChar
          , try singleNewline
          , try noInvisibleAudio
@@ -50,7 +75,7 @@ wordChar = no2newlines >>
          ] <?> "wordChar"
   where
     no2newlines = notFollowedBy doubleNewline
-    nonmarker = noneOf "*_~@\n|0123456789-"
+    nonmarker = noneOf "*_~@\n|0123456789-$" -- $ is not a nonmarker; it's special or escaped
     singleNewline = newline <* notFollowedBy (newlineStr <|> delTail)
     noInvisibleAudio = char '-' <* notFollowedBy (string "-@" <|> string "@")
     noDelimiterChar = newline <* notFollowedBy delTail
@@ -65,7 +90,8 @@ wordChar = no2newlines >>
 -- a more permissive version of wordChar; used to parse inside clozes, audios, bold etc.
 wordCharPermissive :: Parser Char
 wordCharPermissive = no2newlines >>
-  choice [ try nonmarker
+  choice [ try (escapedCharP '$') -- Allow escaped dollar sign
+         , try nonmarker
          , try singleNewline
          --, try noInvisibleAudio
          , try noDelimiterChar
@@ -76,7 +102,7 @@ wordCharPermissive = no2newlines >>
          ] <?> "wordChar"
   where
     no2newlines = notFollowedBy doubleNewline
-    nonmarker = noneOf "*_~@\n|>0123456789-"
+    nonmarker = noneOf "*_~@\n|>0123456789-" -- $ is not a nonmarker here either
     singleNewline = newline <* notFollowedBy (try newline <|> char '\r')
     --noInvisibleAudio = char '-' <* notFollowedBy (string "-@" <|> string "@")
     noDelimiterChar = newline <* notFollowedBy (twoOrMore '-')
@@ -84,7 +110,6 @@ wordCharPermissive = no2newlines >>
     noAudioInsert = char '|' <* notFollowedBy (char '>') -- NEW
     noAudioInsert' = notFollowedBy (char '|') *> (char '>' :: Parser Char) -- NEW
     noInsertDigit = digitChar <* notFollowedBy (many digitChar *> string "|>")
-
 
 
 -- determine whether Csv element is empty
@@ -98,11 +123,11 @@ isNonEmptyCsv = not . isEmptyCsv
 
 -- filter out emtpy csv elements
 nonempty :: [CSV] -> [CSV]
-nonempty xs = filter isNonEmptyCsv xs
+nonempty = filter isNonEmptyCsv
 
 -- string version of bold
 bold' :: Parser String
-bold' = boldMarker *> wordChar `manyTill` (lookAhead boldMarker) <* boldMarker
+bold' = boldMarker *> wordChar `manyTill` lookAhead boldMarker <* boldMarker
 
 -- typed bold
 bold :: Parser Markup
@@ -110,7 +135,7 @@ bold = fmap Bold bold' <?> "bold"
 
 -- string version of bold
 italic' :: Parser String
-italic' = italicMarker *> wordChar `manyTill` (lookAhead italicMarker) <* italicMarker
+italic' = italicMarker *> wordChar `manyTill` lookAhead italicMarker <* italicMarker
 
 -- typed italic
 italic :: Parser Markup
@@ -157,11 +182,13 @@ regular = Regular <$> wordChar `someTill` end <?> "regular"
              , try fieldDelimiter
              , try doubleNewline
              , try audioInsertStr
+             , try mathMarkerStr -- Definition updated below
              , eofStr
              ]
     markerStr = (oneOf "~_*@") $> ""
     audioStr = audio $> ""
     audioInsertStr = audioInsertMarker $> ""
+    mathMarkerStr = (try (string "$$") <|> try (string "$" <* notFollowedBy (char '$'))) $> ""
 
 -- a more permissive version of string without markup to be invoked inside audios, clozes etc.
 regularPermissive :: Parser Markup
@@ -173,11 +200,13 @@ regularPermissive = Regular <$> wordCharPermissive `someTill` end <?> "regular"
              , try fieldDelimiter
              , try doubleNewline
              , try audioInsertStr
+             , try mathMarkerStr -- Definition updated below
              , eofStr
              ]
     markerStr = (oneOf "~_*@") $> ""
     audioStr = audio $> ""
     audioInsertStr = audioInsertMarker $> ""
+    mathMarkerStr = (try (string "$$") <|> try (string "$" <* notFollowedBy (char '$'))) $> ""
 
 
 
@@ -199,7 +228,9 @@ audio = do
 -- any element of type Markup
 markup :: Parser Markup
 markup =
-  choice [ try audio
+  choice [ try mathBlock         -- Try block math first (prefix "$$")
+         , try mathInline        -- Then inline math (prefix "$")
+         , try audio
          , try regular
          , try italic
          , try bold
@@ -218,13 +249,10 @@ markupPermissive =
          , audioInsertMarker
          ]
 
-
-
 cell :: Parser Cell
 cell = Cell <$> markup `someTill` lookAhead end
   where
     end = try fieldDelimiter <|> try doubleNewline <|> eofStr
-
 
 row :: Parser Row
 row = rowUpdateAndCopy
@@ -249,12 +277,9 @@ rowMultipleMixed = rowWith $ removeEmptyAudios . copyUnmergedAudios . rewriteInd
 csv :: Parser CSV
 csv = csvWith $ rowWith $ removeEmptyAudios . copyAudios . updateIndices
 
-
-
 -- we update indices and copy audios into their insert places at row-level
 rowWith :: (CSV -> CSV) ->  Parser Row
 rowWith fltr = fltr . Row <$> (notFollowedBy eofStr >> cell `sepBy` fieldDelimiter)
-
 
 -- parse a csv string and include only non-empty rows in the result
 csvWith :: Parser Row -> Parser CSV
@@ -263,73 +288,6 @@ csvWith rw =
       ayTrailing = (rw `endBy` doubleNewline)
   in Csv . nonempty <$> (noTrailing <|> ayTrailing)
 -- NB: strings ending in two or more newlines require `endBy` (unless previously stripped)
-
-{-
-Using rowWith (this module), copyMarkupWith (Audio module),
-updateIndicesWith and rewriteIndicesWith (Indices module), one can
-construct filters that shape the working of the csv parser.
-
-There are a couple of reasonable ways of putting these filters
-together.
-
-- the copyMarkupWith function affects which Audio markups
-(i.e. the markup contents under the Audio label) get copied
-at the insertion place in the csv string -- the insertion
-place is marked by the AudioInsert element.
-    - if, for instance, we copy all the Audio elements,
-    including those zero- and nonzero-indexed, then any
-    Audio markup that does not receive an index (in the
-    user's input text file) ends up going into the first
-    zero-indexed audio insert place (i.e. in an AudioInsert
-    element). This could be useful in case we use very few
-    markers, e.g.
-
-        @~Look~@ an obscure word @~up~@
-        The hidden phrasal verb is: |>
-
-    The string "Look up" will go into the place of |>. Had
-    we not copied all audio indexed elements, but only those
-    with (non-zero) indices provided by the user, the two
-    words making up the string "Look up" would not have been
-    copied at the same insert place.
-    - so far we worked under the assumption that indices
-    have not been re-assigned to markup elements. Which is
-    to say that in the AST, there are either default,
-    zero-indices on elements (clozes, audios, audio-inserts)
-    provided by default by the parser or non-zero indices
-    provided explicitly by the user. But we can update these
-    indices. We can use updateIndices to update default
-    indices and leave the non-default ones with the original
-    values provided by the user. Or we can use rewriteIndices
-    to rewrite all the values, making sure that elements
-    that had the same index (co-indexed elements) still
-    share an index, although not necessarily the previous
-    one. This overwrites the user's indices, but provided that
-    audio markups are copied (via copyMarkupWith) before
-    the index update, no cross-references (co-indexation)
-    is lost.
-    - now, there is not stringent reason to preserve the user's
-    indices on audio elements, since these indices are not
-    part of the output csv and they would have had their
-    effects (namely the construction of audio strings and
-    their placement at the particular place in the csv's
-    cells) by the time the csv file is written. In contrast,
-    it is more significant to have cloze indices set by the
-    user, as these appear in the csv output and eventually
-    in Anki (once the csv is successfully imported). To
-    turn on the rewriting of indices for audio and insert
-    elements, we filter the csv parse with the function
-    rewriteInsertIndices and rewriteAudioIndices, which
-    are just versions of rewriteIndicesWith (with different
-    predicates as the second argument; the first argument
-    being the csv element).
-    - that said, I adopted as a default a (partial) update
-    of indices, including those of clozes. I just filter the
-    csv element with updateIndices. But we can mix and match
-    using the library.
-
-
--}
 
 -- some helpers
 
@@ -357,8 +315,6 @@ twoOrMore' str = do
   _ <- many pstr
   return (str ++ str)
 
-
-
 --used for testing
 
 -- row and csv parsers that do not update indices (whose actual value is unpredictable
@@ -374,5 +330,5 @@ csvIgnoringIndices =
   in Csv . nonempty <$> (noTrailing <|> ayTrailing)
 
 
-smp :: IO [String]
-smp = sample' (resize 100 arbitrary) :: IO [String]
+--smp :: IO [String]
+--smp = sample' (resize 100 arbitrary) :: IO [String]

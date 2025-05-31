@@ -59,6 +59,8 @@ stringifyElem (Cloze _ str) = str
 stringifyElem (Audio as _ ms) | Invisible `elem` as = ""
                               | otherwise           = concatMap stringifyElem ms
 stringifyElem (AudioInsert _ ms) = concatMap stringifyElem $ intersperse (Regular " ") ms
+stringifyElem (MathInline s) = s
+stringifyElem (MathBlock s) = s
 stringifyElem _ = ""
 
 -- anki strings
@@ -73,6 +75,8 @@ ankiStringifyElem (Audio _ _ ms) = csvFilters (concatMap ankiStringifyElem ms)
 ankiStringifyElem m@(AudioInsert _ _) =
   let content = audioFilename (stringifyElem m)
   in "[sound:" ++ content ++ ".mp3]" -- anki markup for sound files
+ankiStringifyElem (MathInline s) = "<anki-mathjax>" ++ csvFilters s ++ "</anki-mathjax>"
+ankiStringifyElem (MathBlock s) = "<anki-mathjax block=\"true\">" ++ csvFilters s ++ "</anki-mathjax>"
 ankiStringifyElem _ = ""
 
 -- 5_word_content_like_this (no punctuation, symbols, or newlines)

@@ -4,11 +4,12 @@ module ResultsSpec where
 
 
 import Prelude
-import Data.Aeson
+import Data.Aeson (Value, decode, toJSON) -- Modified: Added Value, decode, and toJSON for clarity, though toJSON is often in Prelude via Aeson
 import GHC.Generics
 import Data.Text as T (unpack)
 import Test.Hspec
 import Test.Hspec.QuickCheck
+import qualified Data.ByteString.Lazy.Char8 as LBS (pack) -- Added for converting String to Lazy ByteString
 
 
 import Types
@@ -34,11 +35,19 @@ spec = do
                          , csvString = "\"r1 cell one\", \"r1 cell two\", \"r1 cell three\"\n\"r2 cell one\", \"r2 cell two\", \"r2 cell three\""
                          }
 
-      let res1_json = encode res1
+      -- Get the Aeson Value from your data structure
+      let actualValue = toJSON res1
 
-      let desired_res = "{\"csvData\":{\"csvName\":\"example.csv\",\"csvRows\":[{\"row\":\"\\\"r1 cell one\\\", \\\"r1 cell two\\\", \\\"r1 cell three\\\"\",\"audios\":[\"pronounce this\",\"this should become a sound\"]},{\"row\":\"\\\"r2 cell one\\\", \\\"r2 cell two\\\", \\\"r2 cell three\\\"\",\"audios\":[\"how does this sound?\",\"sound audio\"]}],\"csvString\":\"\\\"r1 cell one\\\", \\\"r1 cell two\\\", \\\"r1 cell three\\\"\\n\\\"r2 cell one\\\", \\\"r2 cell two\\\", \\\"r2 cell three\\\"\"}}"
+      let desired_json_string = "{\"csvData\":{\"csvName\":\"example.csv\",\"csvRows\":[{\"row\":\"\\\"r1 cell one\\\", \\\"r1 cell two\\\", \\\"r1 cell three\\\"\",\"audios\":[\"pronounce this\",\"this should become a sound\"]},{\"row\":\"\\\"r2 cell one\\\", \\\"r2 cell two\\\", \\\"r2 cell three\\\"\",\"audios\":[\"how does this sound?\",\"sound audio\"]}],\"csvString\":\"\\\"r1 cell one\\\", \\\"r1 cell two\\\", \\\"r1 cell three\\\"\\n\\\"r2 cell one\\\", \\\"r2 cell two\\\", \\\"r2 cell three\\\"\"}}"
 
-      res1_json `shouldBe` desired_res
+      -- Decode the desired JSON string into an Aeson Value
+      -- decode expects a Lazy ByteString, so we pack the String
+      let mExpectedValue :: Maybe Value
+          mExpectedValue = decode (LBS.pack desired_json_string)
+
+      case mExpectedValue of
+        Nothing -> expectationFailure $ "Failed to parse desired_json_string into Aeson Value: " ++ desired_json_string
+        Just expectedValue -> actualValue `shouldBe` expectedValue
 
     it "extracts audios and writes resulting list as JSON array" $ do
 

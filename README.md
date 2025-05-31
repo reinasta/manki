@@ -112,6 +112,9 @@ stack test --verbose
 
 # Run specific test module
 stack test --test-arguments="--match AudioSpec"
+
+# Run specific `it` test block in the ParserSpec module (targeting functionality in the Parser module)
+stack test --test-arguments "--match \"/Parser/mixed math and text/parses inline math with escaped dollar signs within math content/\" --seed 800542947"
 ```
 
 ### Development Usage

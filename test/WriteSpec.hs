@@ -122,3 +122,23 @@ spec = do
       ankiStringifyElem a2 `shouldBe` a2_anki
       ankiStringifyElem a3 `shouldBe` a3_anki
 
+    it "anki markup for MathInline" $ do
+      let math_inline_input = MathInline "x = \\frac{-b \\pm \\sqrt{b^2-4ac}}{2a}"
+      let math_inline_expected = "<anki-mathjax>x = \\frac{-b \\pm \\sqrt{b^2-4ac}}{2a}</anki-mathjax>"
+      ankiStringifyElem math_inline_input `shouldBe` math_inline_expected
+
+    it "anki markup for MathInline with characters requiring csvFilters" $ do
+      let math_inline_input_csv = MathInline "P(\"event\") < 0.5\nNext line"
+      let math_inline_expected_csv = "<anki-mathjax>P(\"\"event\"\") < 0.5<br>Next line</anki-mathjax>"
+      ankiStringifyElem math_inline_input_csv `shouldBe` math_inline_expected_csv
+
+    it "anki markup for MathBlock" $ do
+      let math_block_input = MathBlock "f(x) = \\int_{-\\infty}^x e^{-t^2/2} dt"
+      let math_block_expected = "<anki-mathjax block=\"true\">f(x) = \\int_{-\\infty}^x e^{-t^2/2} dt</anki-mathjax>"
+      ankiStringifyElem math_block_input `shouldBe` math_block_expected
+
+    it "anki markup for MathBlock with characters requiring csvFilters" $ do
+      let math_block_input_csv = MathBlock "A = \"Some matrix\"\n\\[ \\begin{pmatrix} a & b \\\\ c & d \\end{pmatrix} \\]"
+      let math_block_expected_csv = "<anki-mathjax block=\"true\">A = \"\"Some matrix\"\"<br>\\[ \\begin{pmatrix} a & b \\\\ c & d \\end{pmatrix} \\]</anki-mathjax>"
+      ankiStringifyElem math_block_input_csv `shouldBe` math_block_expected_csv
+

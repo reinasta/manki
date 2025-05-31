@@ -370,3 +370,4 @@ bareBonesMarkup (Italic str) = Italic $ take 4 str
 bareBonesMarkup (Regular str) = Regular $ take 4 str
 bareBonesMarkup EndCell = EndCell
 bareBonesMarkup EndRow = EndRow
+
